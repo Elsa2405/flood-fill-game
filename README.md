@@ -78,13 +78,13 @@ Check the browser developer console for PASS/FAIL results.
 
 ⏱ Development Notes
 
-Estimated time spent coding: 17–25 hours
+Estimated time spent coding: 26~30 hours
 
-Planning & setup: 1–2 hrs
+Planning & setup: 2-3 hrs
 
 Grid rendering & mechanics: 5–7 hrs
 
-Controls, scoring, undo: 4–6 hrs
+Controls, scoring, undo: 5-7 hrs
 
 Styling & accessibility: 4–6 hrs
 
