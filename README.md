@@ -34,18 +34,17 @@ High-contrast mode: Adds seams for easier color distinction.
 
 📂 Project Structure
 flood-fill-game/
-├── index.html   # Main page structure
-├── style.css    # Styling and layout
-└── app.js       # Game logic, RNG, flood algorithm, tests
+├── index.html # Main page structure
+├── style.css # Styling and layout
+└── app.js # Game logic, RNG, flood algorithm, tests
 
 🚀 Getting Started
 Run locally
 
 Clone the repo:
 
-git clone https://github.com/YOUR-USERNAME/flood-fill-game.git
+git clone https://github.com/Elsa2405/flood-fill-game.git
 cd flood-fill-game
-
 
 Open index.html in your browser.
 
