@@ -1,3 +1,825 @@
-src/index.html
-src/app.js
-src/style.css
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flood Fill – Elsa (DGL‑213)</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --muted: #94a3b8;
+        --ink: #e5e7eb;
+        --accent: #38bdf8;
+        --ok: #10b981;
+        --danger: #ef4444;
+        --cell-size: 36px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial;
+        color: var(--ink);
+        background: var(--bg);
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .app {
+        width: min(1100px, 100%);
+        display: grid;
+        gap: 16px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(18px, 2vw, 22px);
+      }
+
+      .grid-wrap {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 16px;
+      }
+      @media (max-width: 920px) {
+        .grid-wrap {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.05),
+          rgba(255, 255, 255, 0.02)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 18px;
+        padding: 14px;
+      }
+
+      .board {
+        display: grid;
+        gap: 0;
+        justify-content: center;
+        padding: 12px;
+        background: #0b1224;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .cell {
+        width: var(--cell-size);
+        height: var(--cell-size); /* no borders: fully seamless */
+      }
+
+      .controls {
+        display: grid;
+        gap: 12px;
+      }
+      .controls .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      label {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      input[type="number"],
+      input[type="text"],
+      select {
+        background: #0b1224;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: var(--ink);
+        padding: 10px 12px;
+        border-radius: 10px;
+        outline: none;
+        width: 100%;
+      }
+      input[type="checkbox"] {
+        transform: translateY(2px);
+      }
+      button {
+        appearance: none;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: #0e152b;
+        color: var(--ink);
+        padding: 10px 14px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: transform 0.05s ease, background 0.2s ease;
+      }
+      button:hover {
+        background: #141d3a;
+      }
+      button:active {
+        transform: translateY(1px);
+      }
+      .btn-primary {
+        border-color: rgba(56, 189, 248, 0.6);
+      }
+      .btn-danger {
+        border-color: rgba(239, 68, 68, 0.6);
+      }
+
+      .palette {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .swatch {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        border: 2px solid rgba(255, 255, 255, 0.45);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+        cursor: pointer;
+      }
+
+      .meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .stat {
+        padding: 10px 12px;
+        background: #0b1224;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+      }
+      .stat b {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .stat span {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .status {
+        min-height: 24px;
+        color: var(--muted);
+      }
+      .kbd {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", monospace;
+        background: #111827;
+        padding: 2px 6px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+      }
+      .good {
+        color: var(--ok);
+      }
+      .bad {
+        color: var(--danger);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <h1>🎨 Flood Fill — Seamless Demo</h1>
+        <div>
+          <button id="btnHelp" title="Help (controls & rules)">Help</button>
+        </div>
+      </header>
+
+      <div class="grid-wrap">
+        <section class="card" aria-labelledby="boardTitle">
+          <h2 id="boardTitle" style="position: absolute; left: -9999px">
+            Game Board
+          </h2>
+          <div
+            id="board"
+            class="board"
+            role="grid"
+            aria-label="Flood Fill board"
+          ></div>
+          <div class="status" aria-live="polite" id="status"></div>
+        </section>
+
+        <aside class="card">
+          <div class="controls" aria-labelledby="controlsTitle">
+            <h2
+              id="controlsTitle"
+              style="margin: 0 0 6px 0; font-size: 16px; color: var(--muted)"
+            >
+              Setup & Controls
+            </h2>
+            <div class="row">
+              <div style="flex: 1">
+                <label for="rows">Rows</label
+                ><input id="rows" type="number" min="4" max="20" value="10" />
+              </div>
+              <div style="flex: 1">
+                <label for="cols">Cols</label
+                ><input id="cols" type="number" min="4" max="20" value="10" />
+              </div>
+              <div style="flex: 1">
+                <label for="colors">Colors</label
+                ><input id="colors" type="number" min="3" max="8" value="6" />
+              </div>
+            </div>
+            <div class="row">
+              <div style="flex: 1">
+                <label for="moves">Move limit</label
+                ><input id="moves" type="number" min="8" max="60" value="25" />
+              </div>
+              <div style="flex: 2">
+                <label for="seed"
+                  >Seed <span class="kbd" id="seedEcho"></span></label
+                ><input id="seed" type="text" placeholder="blank = random" />
+              </div>
+            </div>
+            <div
+              class="row"
+              style="align-items: center; justify-content: space-between"
+            >
+              <div>
+                <label
+                  ><input id="highContrast" type="checkbox" /> High‑contrast
+                  seams</label
+                >
+              </div>
+              <div style="display: flex; gap: 8px">
+                <button id="btnNew" class="btn-primary">New Game</button>
+                <button id="btnUndo">Undo</button>
+                <button id="btnReset" class="btn-danger">Reset</button>
+              </div>
+            </div>
+            <div>
+              <label>Palette (press <span class="kbd">1…9</span>)</label>
+              <div
+                id="palette"
+                class="palette"
+                role="toolbar"
+                aria-label="Color palette"
+              ></div>
+            </div>
+            <div class="meta">
+              <div class="stat">
+                <b>Moves used</b><span id="movesUsed">0</span>
+              </div>
+              <div class="stat">
+                <b>Moves left</b><span id="movesLeft">25</span>
+              </div>
+              <div class="stat">
+                <b>Coverage</b><span id="coverage">0%</span>
+              </div>
+              <div class="stat"><b>Score</b><span id="score">0.00</span></div>
+            </div>
+            <p style="margin: 0.4rem 0 0 0; color: var(--muted)">
+              Goal: make the entire grid one color before you run out of moves.
+              Origin is <span class="kbd">(0,0)</span>.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <template id="tplCell"
+      ><div class="cell" role="gridcell" tabindex="-1"></div
+    ></template>
+
+    <dialog id="dlgHelp">
+      <form
+        method="dialog"
+        style="
+          max-width: min(640px, 90vw);
+          background: #0b1224;
+          color: var(--ink);
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          padding: 18px 16px;
+          border-radius: 16px;
+        "
+      >
+        <h3 style="margin-top: 0">How to play</h3>
+        <ul>
+          <li>
+            Click a color button or press keys <span class="kbd">1…9</span> to
+            flood the origin component.
+          </li>
+          <li>Win when all cells are the same color within the move limit.</li>
+          <li>
+            <b>Seeded boards</b>: enter a seed to reproduce a board; the seed
+            echoes above the field.
+          </li>
+          <li>
+            <b>Score</b> is normalized by an estimated optimal move count to
+            offset easy seeds.
+          </li>
+        </ul>
+        <p>
+          <b>Keyboard:</b> <span class="kbd">1…9</span> choose ·
+          <span class="kbd">N</span> new · <span class="kbd">U</span> undo ·
+          <span class="kbd">R</span> reset.
+        </p>
+        <div style="text-align: right; margin-top: 12px">
+          <button>Close</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script>
+      // ===== Utilities =====
+      const rnd = ((seedStr) => {
+        function xmur3(str) {
+          let h = 1779033703 ^ str.length;
+          for (let i = 0; i < str.length; i++) {
+            h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+            h = (h << 13) | (h >>> 19);
+          }
+          return () => {
+            h = Math.imul(h ^ (h >>> 16), 2246822507);
+            h = Math.imul(h ^ (h >>> 13), 3266489909);
+            return (h ^ (h >>> 16)) >>> 0;
+          };
+        }
+        function mulberry32(a) {
+          return function () {
+            let t = (a += 0x6d2b79f5);
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+        return (seed) => {
+          if (!seed) {
+            seed = Math.random().toString(36).slice(2);
+          }
+          const h = xmur3(seed)();
+          return [mulberry32(h), seed];
+        };
+      })();
+
+      const COLORS = [
+        "#f87171",
+        "#fbbf24",
+        "#34d399",
+        "#60a5fa",
+        "#a78bfa",
+        "#f472b6",
+        "#22d3ee",
+        "#eab308",
+      ];
+
+      const $ = (sel) => document.querySelector(sel);
+      const boardEl = $("#board");
+      const tplCell = $("#tplCell");
+      const paletteEl = $("#palette");
+      const statusEl = $("#status");
+      const rowsEl = $("#rows");
+      const colsEl = $("#cols");
+      const colorsEl = $("#colors");
+      const movesEl = $("#moves");
+      const seedEl = $("#seed");
+      const seedEcho = $("#seedEcho");
+      const movesUsedEl = $("#movesUsed");
+      const movesLeftEl = $("#movesLeft");
+      const coverageEl = $("#coverage");
+      const scoreEl = $("#score");
+      const btnNew = $("#btnNew");
+      const btnUndo = $("#btnUndo");
+      const btnReset = $("#btnReset");
+      const highContrastEl = $("#highContrast");
+      const dlgHelp = $("#dlgHelp");
+      $("#btnHelp").addEventListener("click", () => dlgHelp.showModal());
+
+      const state = {
+        rows: 10,
+        cols: 10,
+        colorCount: 6,
+        limit: 25,
+        seed: "",
+        rng: null,
+        grid: [],
+        history: [],
+        movesUsed: 0,
+        lastColor: null,
+      };
+
+      function setupPalette() {
+        paletteEl.innerHTML = "";
+        for (let i = 0; i < state.colorCount; i++) {
+          const btn = document.createElement("button");
+          btn.className = "swatch";
+          btn.title = `Color ${i + 1}`;
+          btn.setAttribute("aria-label", `Choose color ${i + 1}`);
+          btn.style.background = COLORS[i % COLORS.length];
+          btn.addEventListener("click", () => chooseColor(i));
+          paletteEl.appendChild(btn);
+        }
+      }
+
+      function initGrid() {
+        const [rng, seed] = rnd(state.seed.trim());
+        state.rng = rng;
+        state.seed = seed;
+        seedEcho.textContent = seed;
+        const { rows, cols, colorCount } = state;
+        state.grid = Array.from({ length: rows }, () =>
+          Array.from({ length: cols }, () => Math.floor(rng() * colorCount))
+        );
+        state.history = [];
+        state.movesUsed = 0;
+        state.lastColor = state.grid[0][0];
+        renderBoard();
+        updateStats();
+        statusEl.textContent = `New game started (seed ${seed}).`;
+      }
+
+      function renderBoard() {
+        const { rows, cols } = state;
+        boardEl.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
+        boardEl.innerHTML = "";
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const cell = tplCell.content.firstElementChild.cloneNode(true);
+            cell.style.background = COLORS[state.grid[r][c]];
+            boardEl.appendChild(cell);
+          }
+        }
+
+        if (highContrastEl.checked) drawSeams();
+        else clearSeams();
+      }
+
+      function clearSeams() {
+        [...boardEl.children].forEach((cell) => {
+          cell.style.borderTop =
+            cell.style.borderRight =
+            cell.style.borderBottom =
+            cell.style.borderLeft =
+              "0px solid transparent";
+        });
+      }
+      function drawSeams() {
+        const { rows, cols } = state;
+        const cells = boardEl.children;
+        const seam = "1px solid rgba(255,255,255,.15)";
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const idx = r * cols + c;
+            const cell = cells[idx];
+            const val = state.grid[r][c];
+            const topDiff = r > 0 ? state.grid[r - 1][c] !== val : true;
+            const leftDiff = c > 0 ? state.grid[r][c - 1] !== val : true;
+            const rightDiff =
+              c < cols - 1 ? state.grid[r][c + 1] !== val : true;
+            const bottomDiff =
+              r < rows - 1 ? state.grid[r + 1][c] !== val : true;
+            cell.style.borderTop = topDiff ? seam : "0px solid transparent";
+            cell.style.borderLeft = leftDiff ? seam : "0px solid transparent";
+            cell.style.borderRight = rightDiff ? seam : "0px solid transparent";
+            cell.style.borderBottom = bottomDiff
+              ? seam
+              : "0px solid transparent";
+          }
+        }
+      }
+
+      function flood(originColor, newColor) {
+        if (originColor === newColor) return 0;
+
+        const rows = state.grid.length;
+        const cols = rows ? state.grid[0].length : 0;
+        const grid = state.grid.map((row) => row.slice());
+        let count = 0;
+        const q = [[0, 0]];
+        const seen = new Set(["0,0"]);
+        while (q.length) {
+          const [r, c] = q.shift();
+          if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
+          if (grid[r][c] !== originColor) continue;
+          grid[r][c] = newColor;
+          count++;
+          const nbrs = [
+            [r + 1, c],
+            [r - 1, c],
+            [r, c + 1],
+            [r, c - 1],
+          ];
+          for (const [nr, nc] of nbrs) {
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+              const key = nr + "," + nc;
+              if (!seen.has(key) && grid[nr][nc] === originColor) {
+                seen.add(key);
+                q.push([nr, nc]);
+              }
+            }
+          }
+        }
+        state.grid = grid;
+        return count;
+      }
+
+      function chooseColor(colorIdx) {
+        if (isWon() || isOutOfMoves()) return;
+        const originColor = state.grid[0][0];
+        if (colorIdx === originColor) {
+          statusEl.textContent = "Pick a different color than the origin.";
+          return;
+        }
+        state.history.push({
+          grid: state.grid.map((r) => r.slice()),
+          movesUsed: state.movesUsed,
+        });
+        flood(originColor, colorIdx);
+        state.movesUsed += 1;
+        state.lastColor = colorIdx;
+        renderBoard();
+        updateStats();
+        if (isWon()) announceWin();
+        else if (isOutOfMoves()) announceLose();
+      }
+
+      function isWon() {
+        const v = state.grid[0][0];
+        for (const row of state.grid) {
+          for (const x of row) {
+            if (x !== v) return false;
+          }
+        }
+        return true;
+      }
+      function isOutOfMoves() {
+        return state.movesUsed >= state.limit;
+      }
+
+      function coverage() {
+        const rows = state.grid.length;
+        const cols = rows ? state.grid[0].length : 0;
+        if (rows === 0 || cols === 0) return 0;
+        const v = state.grid[0][0];
+        let n = 0,
+          total = rows * cols;
+        for (const row of state.grid) {
+          for (const x of row) {
+            if (x === v) n++;
+          }
+        }
+        return total ? n / total : 0;
+      }
+
+      function estimateOptimalMoves(trials = 3) {
+        const rows = state.grid.length;
+        const cols = rows ? state.grid[0].length : 0;
+        const colorCount = state.colorCount;
+        const total = rows * cols;
+        let best = Infinity;
+        for (let t = 0; t < trials; t++) {
+          let g = state.grid.map((r) => r.slice());
+          let moves = 0,
+            guard = total * 3;
+          while (guard--) {
+            const origin = g[0][0];
+            if (g.every((row) => row.every((x) => x === origin))) break;
+            let bestColor = 0,
+              bestGain = -1;
+            for (let c = 0; c < colorCount; c++) {
+              if (c === origin) continue;
+              const sim = g.map((r) => r.slice());
+              const q = [[0, 0]];
+              const seen = new Set(["0,0"]);
+              while (q.length) {
+                const [r, c2] = q.shift();
+                if (sim[r][c2] !== origin) continue;
+                sim[r][c2] = c;
+                const nbrs = [
+                  [r + 1, c2],
+                  [r - 1, c2],
+                  [r, c2 + 1],
+                  [r, c2 - 1],
+                ];
+                for (const [nr, nc] of nbrs) {
+                  if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                    const key = nr + "," + nc;
+                    if (!seen.has(key) && sim[nr][nc] === origin) {
+                      seen.add(key);
+                      q.push([nr, nc]);
+                    }
+                  }
+                }
+              }
+              let covered = 0;
+              const v = sim[0][0];
+              for (const row of sim) {
+                for (const x of row) {
+                  if (x === v) covered++;
+                }
+              }
+              if (covered > bestGain) {
+                bestGain = covered;
+                bestColor = c;
+              }
+            }
+            const originBefore = g[0][0];
+            const q = [[0, 0]];
+            const seen = new Set(["0,0"]);
+            while (q.length) {
+              const [r, c2] = q.shift();
+              if (g[r][c2] !== originBefore) continue;
+              g[r][c2] = bestColor;
+              const nbrs = [
+                [r + 1, c2],
+                [r - 1, c2],
+                [r, c2 + 1],
+                [r, c2 - 1],
+              ];
+              for (const [nr, nc] of nbrs) {
+                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                  const key = nr + "," + nc;
+                  if (!seen.has(key) && g[nr][nc] === originBefore) {
+                    seen.add(key);
+                    q.push([nr, nc]);
+                  }
+                }
+              }
+            }
+            moves++;
+            if (moves > total) break;
+          }
+          if (moves < best) best = moves;
+        }
+        return isFinite(best) ? best : total;
+      }
+
+      function computeScore() {
+        const est = Math.max(1, estimateOptimalMoves(3));
+        const remaining = Math.max(0, state.limit - state.movesUsed);
+        return [(remaining / est).toFixed(2), est];
+      }
+
+      function updateStats() {
+        movesUsedEl.textContent = state.movesUsed;
+        movesLeftEl.textContent = Math.max(0, state.limit - state.movesUsed);
+        coverageEl.textContent = Math.round(coverage() * 100) + "%";
+        const [sc] = computeScore();
+        scoreEl.textContent = sc;
+      }
+      function announceWin() {
+        statusEl.innerHTML = `<span class="good">You win!</span> Cleared in <b>${state.movesUsed}</b> moves. Seed <code>${state.seed}</code>.`;
+      }
+      function announceLose() {
+        statusEl.innerHTML = `<span class="bad">Out of moves.</span> Adjust settings or try a new route. Seed <code>${state.seed}</code>.`;
+      }
+
+      btnNew.addEventListener("click", () => {
+        readSettings();
+        initGrid();
+      });
+      btnReset.addEventListener("click", () => {
+        state.movesUsed = 0;
+        renderBoard();
+        updateStats();
+        statusEl.textContent = "Board reset (same seed).";
+      });
+      btnUndo.addEventListener("click", () => {
+        const prev = state.history.pop();
+        if (!prev) {
+          statusEl.textContent = "Nothing to undo.";
+          return;
+        }
+        state.grid = prev.grid.map((r) => r.slice());
+        state.movesUsed = prev.movesUsed;
+        renderBoard();
+        updateStats();
+        statusEl.textContent = "Undid last move.";
+      });
+      highContrastEl.addEventListener("change", () => renderBoard());
+
+      function readSettings() {
+        state.rows = clamp(+rowsEl.value, 4, 20);
+        state.cols = clamp(+colsEl.value, 4, 20);
+        state.colorCount = clamp(+colorsEl.value, 3, 8);
+        state.limit = clamp(+movesEl.value, 8, 60);
+        state.seed = seedEl.value.trim();
+        document.documentElement.style.setProperty(
+          "--cell-size",
+          state.rows * state.cols > 196 ? "28px" : "36px"
+        );
+      }
+      function clamp(v, min, max) {
+        return Math.max(min, Math.min(max, isFinite(v) ? v : min));
+      }
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key >= "1" && e.key <= "9") {
+          const idx = +e.key - 1;
+          if (idx < state.colorCount) chooseColor(idx);
+        }
+        if (e.key === "n" || e.key === "N") {
+          readSettings();
+          initGrid();
+        }
+        if (e.key === "u" || e.key === "U") {
+          btnUndo.click();
+        }
+        if (e.key === "r" || e.key === "R") {
+          btnReset.click();
+        }
+        if (e.key === "?" || e.key === "h" || e.key === "H") {
+          dlgHelp.open ? dlgHelp.close() : dlgHelp.showModal();
+        }
+      });
+
+      function assert(name, cond) {
+        if (!cond) {
+          console.error("Test FAIL:", name);
+        } else {
+          console.log("Test PASS:", name);
+        }
+      }
+      function cloneGrid(g) {
+        return g.map((r) => r.slice());
+      }
+      function generateGrid(rows, cols, colorCount, seed) {
+        const [rng] = rnd(seed);
+        return Array.from({ length: rows }, () =>
+          Array.from({ length: cols }, () => Math.floor(rng() * colorCount))
+        );
+      }
+      function runTests() {
+        const g1 = generateGrid(4, 4, 3, "seed123");
+        const g2 = generateGrid(4, 4, 3, "seed123");
+        assert(
+          "Seeded grids are identical",
+          JSON.stringify(g1) === JSON.stringify(g2)
+        );
+
+        const snap = { grid: cloneGrid(state.grid), moves: state.movesUsed };
+        state.grid = Array.from({ length: 3 }, () => Array(3).fill(0));
+        assert(
+          "Coverage of uniform 3x3 grid = 1",
+          Math.abs(coverage() - 1) < 1e-9
+        );
+
+        state.grid = [
+          [0, 1, 1],
+          [0, 2, 1],
+          [2, 2, 1],
+        ];
+        const before = JSON.stringify(state.grid);
+        flood(0, 1);
+        const after = JSON.stringify(state.grid);
+        assert("Flood modifies grid", before !== after);
+        assert("Flood result origin is new color", state.grid[0][0] === 1);
+
+        const g3 = generateGrid(4, 4, 3, "seedA");
+        const g4 = generateGrid(4, 4, 3, "seedB");
+        assert(
+          "Different seeds usually yield different grids",
+          JSON.stringify(g3) !== JSON.stringify(g4)
+        );
+
+        state.grid = Array.from({ length: 2 }, () => Array(5).fill(7));
+        assert(
+          "Coverage of uniform 2x5 grid = 1",
+          Math.abs(coverage() - 1) < 1e-9
+        );
+
+        const g5 = generateGrid(5, 6, 4, "rangeCheck");
+        const inRange = g5.every((row) =>
+          row.every((x) => Number.isInteger(x) && x >= 0 && x < 4)
+        );
+        assert("Generated values within range", inRange);
+
+        state.grid = [
+          [0, 0, 1],
+          [1, 0, 2],
+          [2, 2, 2],
+        ];
+        try {
+          flood(0, 1);
+          assert("Flood did not throw on 3x3 grid", true);
+        } catch (e) {
+          console.error(e);
+          assert("Flood did not throw on 3x3 grid", false);
+        }
+
+        state.grid = snap.grid;
+        state.movesUsed = snap.moves;
+      }
+
+      (function boot() {
+        readSettings();
+        setupPalette();
+        initGrid();
+        runTests();
+      })();
+    </script>
+  </body>
+</html>
